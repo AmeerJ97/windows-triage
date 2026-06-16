@@ -1,0 +1,56 @@
+# Windows Triage generated reports
+WindowsTriage_*/
+WindowsTriage_*.zip
+Diagnostic_*/
+Diagnostic_*.zip
+
+# PowerShell/module clutter
+*.ps1xml
+*.psm1~
+*.psd1~
+
+# Editor and OS files
+.DS_Store
+Thumbs.db
+desktop.ini
+.vscode/
+.idea/
+
+# Local agent/index state
+.codex/
+.codegraph/
+
+# Logs and temporary files
+*.log
+*.tmp
+*.bak
+*.orig
+
+# .NET build output
+bin/
+obj/
+**/bin/
+**/obj/
+TestResults/
+**/TestResults/
+artifacts/
+publish/
+**/artifacts/
+**/publish/
+*.trx
+coverage/
+coverage.xml
+coverage.opencover.xml
+*.coverage
+*.coveragexml
+
+# Local scanner output
+.scannerwork
+.scannerwork/
+.sonarqube
+.sonarqube/
+.sonar
+.sonar/
+
+# Early Drafts
+/draft_script.ps1

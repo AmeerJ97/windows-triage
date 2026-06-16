@@ -1,0 +1,48 @@
+name: Bug report
+description: Report a reproducible problem in Windows Triage
+title: "[Bug]: "
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Do not attach full diagnostic bundles publicly. Use `public_summary.md` or redacted snippets.
+        For security or privacy issues, use the private reporting path in `SECURITY.md`.
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary
+      description: What happened, and what did you expect instead?
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: Provide a minimal sequence that reproduces the issue.
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Windows Triage version
+      description: Example: 0.2.0
+  - type: input
+    id: windows_version
+    attributes:
+      label: Windows version
+      description: Example: Windows 11 24H2
+  - type: dropdown
+    id: mode
+    attributes:
+      label: Mode
+      options:
+        - GUI
+        - CLI
+        - Both
+  - type: textarea
+    id: notes
+    attributes:
+      label: Additional context
+      description: Include redacted logs or screenshots only if they are safe to share publicly.
