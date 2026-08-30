@@ -1,0 +1,84 @@
+---
+name: signed-release
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing v0.3.0-beta.1 tag to release
+        required: true
+        type: string
+      aws_evidence_url:
+        description: URL to the successful AWS Windows Server smoke evidence
+        required: true
+        type: string
+      windows11_evidence_url:
+        description: URL to the successful Windows 11 KVM acceptance evidence
+        required: true
+        type: string
+permissions:
+  actions: read
+  contents: write
+jobs:
+  sign-and-release:
+    runs-on: windows-latest
+    environment: signed-release
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          ref: "${{ inputs.tag }}"
+      - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68  # v6.0.0
+        with:
+          dotnet-version: 10.0.x
+      - name: Validate tag and version
+        shell: pwsh
+        run: |
+          $version = ([xml](Get-Content Directory.Build.props)).Project.PropertyGroup.Version
+          if ("v$version" -ne "${{ inputs.tag }}") { throw "Tag ${{ inputs.tag }} does not match v$version" }
+      - name: Build and test
+        shell: pwsh
+        run: |
+          dotnet restore --locked-mode
+          dotnet test -c Release --no-restore
+          dotnet publish .\src\WindowsTriage.App\WindowsTriage.App.csproj -c Release -r win-x64 --self-contained true --no-restore
+      - name: Upload unsigned artifact
+        id: unsigned
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7
+        with:
+          name: unsigned-windows-triage
+          path: src/WindowsTriage.App/bin/Release/net10.0-windows10.0.22000.0/win-x64/publish/WindowsTriage.exe
+      - name: Submit SignPath signing request
+        uses: signpath/github-action-submit-signing-request@c92b958760219087e01f8d67a1669ed57afe2627  # v2
+        with:
+          api-token: "${{ secrets.SIGNPATH_API_TOKEN }}"
+          organization-id: "${{ vars.SIGNPATH_ORGANIZATION_ID }}"
+          project-slug: "${{ vars.SIGNPATH_PROJECT_SLUG }}"
+          signing-policy-slug: "${{ vars.SIGNPATH_SIGNING_POLICY_SLUG }}"
+          github-artifact-id: "${{ steps.unsigned.outputs.artifact-id }}"
+          wait-for-completion: true
+          output-artifact-directory: signed
+          parameters: |
+            version: "${{ inputs.tag }}"
+      - name: Verify signature and checksum
+        shell: pwsh
+        run: |
+          $exe = Get-ChildItem signed -Filter WindowsTriage.exe -Recurse | Select-Object -First 1
+          if ($null -eq $exe) { throw "SignPath did not return WindowsTriage.exe" }
+          $signature = Get-AuthenticodeSignature $exe.FullName
+          if ($signature.Status -ne "Valid") { throw "Invalid Authenticode status: $($signature.Status)" }
+          if ($signature.SignerCertificate.Subject -notlike "*${{ vars.SIGNPATH_EXPECTED_SUBJECT }}*") { throw "Unexpected signer: $($signature.SignerCertificate.Subject)" }
+          if ($null -eq $signature.TimeStamperCertificate) { throw "Signed executable is not timestamped" }
+          Copy-Item $exe.FullName .\WindowsTriage.exe
+          (Get-FileHash .\WindowsTriage.exe -Algorithm SHA256).Hash.ToLowerInvariant() + "  WindowsTriage.exe" | Set-Content .\WindowsTriage.exe.sha256 -Encoding ascii
+      - name: Publish GitHub prerelease
+        env:
+          GH_TOKEN: "${{ github.token }}"
+        shell: pwsh
+        run: |
+          @"
+          Automated Windows smoke: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          AWS Windows Server evidence: ${{ inputs.aws_evidence_url }}
+          Windows 11 GUI/UAC/SmartScreen evidence: ${{ inputs.windows11_evidence_url }}
+
+          See docs/release-notes-0.3.0-beta.1.md for changes and privacy guidance.
+          "@ | Set-Content release-body.md
+          gh release create "${{ inputs.tag }}" .\WindowsTriage.exe .\WindowsTriage.exe.sha256 --verify-tag --prerelease --title "Windows Triage ${{ inputs.tag }}" --notes-file release-body.md

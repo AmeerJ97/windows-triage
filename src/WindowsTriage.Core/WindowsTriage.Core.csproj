@@ -4,8 +4,7 @@
     <SupportedOSPlatformVersion>10.0.22000.0</SupportedOSPlatformVersion>
   </PropertyGroup>
   <ItemGroup>
-    <PackageReference Include="System.Diagnostics.EventLog" Version="10.0.0" />
-    <PackageReference Include="System.Diagnostics.PerformanceCounter" Version="10.0.0" />
-    <PackageReference Include="System.Management" Version="10.0.0" />
+    <PackageReference Include="System.Diagnostics.EventLog" Version="10.0.11" />
+    <PackageReference Include="System.Management" Version="10.0.11" />
   </ItemGroup>
 </Project>

@@ -2,18 +2,22 @@
 
 Windows Triage is a read-only Windows 11 health diagnostic application for overheating, high CPU, throttling, crashes, battery, storage, drivers, updates, Defender, and power issues.
 
+It is a PC-health collector, not an incident-response or forensic triage suite. It does not collect memory dumps, browser history, autoruns data, or other forensic evidence.
+
 The public beta release target is a single Windows executable that a user can download, double-click, approve the Windows Administrator prompt, run a guided scan, and review the generated report bundle locally.
 
 ## Current Status
+
+The repository is preparing `v0.3.0-beta.1`. The typed/privacy-safe implementation builds and tests locally, and elevated Quick collection has passed on AWS Windows Server 2025. No public binary should be published until the Windows 11 client and SignPath gates also pass.
 
 This repository now contains:
 
 - A modular .NET desktop application under `src/`.
 - A WinForms GUI for non-technical users.
 - A CLI mode for automation and maintainers.
-- The original PowerShell prototype, preserved as `Start-WindowsTriage.ps1`.
+- The original unsupported PowerShell prototype, archived under `legacy/`.
 
-The PowerShell script is legacy/reference material. New development should target the .NET solution.
+The PowerShell script is unsupported historical reference material. All use and development should target the .NET solution.
 
 ## User Experience
 
@@ -25,7 +29,21 @@ For public releases, users should:
 4. Click `Start Scan`.
 5. Share `public_summary.md` in public issues, and keep the full `.zip` report bundle private unless a maintainer requests it through a private channel.
 
-The app does not install anything and does not upload data. Beta binaries may be unsigned; verify release checksums before running them.
+The app does not install anything and does not upload data. Public binaries must carry the expected timestamped SignPath signature; verify both the signature and published checksum before running them.
+
+## Quick Start
+
+GUI users can double-click the signed `WindowsTriage.exe`, approve UAC, choose a profile, and select **Start Scan**.
+
+From an Administrator terminal:
+
+```powershell
+.\WindowsTriage.exe full
+.\WindowsTriage.exe quick --output C:\Temp --open
+.\WindowsTriage.exe advanced --print-summary
+```
+
+Use `.\WindowsTriage.exe profiles` and `.\WindowsTriage.exe privacy` without elevation for concise built-in guidance. See the complete [CLI reference](docs/cli-reference.md) and [privacy model](docs/privacy-model.md).
 
 ## What It Collects
 
@@ -51,6 +69,10 @@ Optional privacy-sensitive data is off by default:
 - Process and service command lines.
 - Local Windows username.
 - Local computer name.
+- Hardware serial numbers, processor IDs, PNP IDs, and absolute local paths.
+- Raw event messages and raw power reports.
+
+Use the explicit private-artifact option only when a trusted maintainer needs raw Windows evidence. The generated `public_summary.md` remains redacted even when privacy opt-ins are enabled.
 
 ## What It Does Not Do
 
@@ -88,16 +110,22 @@ Double-clicking opens the GUI and relaunches elevated for complete collection. P
 
 ```powershell
 WindowsTriage.exe collect
+WindowsTriage.exe quick
+WindowsTriage.exe full --print-summary
+WindowsTriage.exe advanced --open
 WindowsTriage.exe collect --profile quick
 WindowsTriage.exe collect --profile advanced --include-network --include-command-lines
 WindowsTriage.exe collect --include-machine-name
+WindowsTriage.exe collect --include-private-artifacts
 WindowsTriage.exe collect --output C:\Temp --no-zip --json
 WindowsTriage.exe gui
 WindowsTriage.exe --help
 WindowsTriage.exe --version
+WindowsTriage.exe profiles
+WindowsTriage.exe privacy
 ```
 
-`--help` and `--version` do not require elevation. `collect` must be run from an Administrator terminal; otherwise it exits with code `3`.
+The `quick`, `full`, and `advanced` commands are profile shorthands. `profiles`, `privacy`, `--help`, and `--version` do not require elevation. Collection commands require an Administrator terminal and preserve automation-friendly exit codes.
 
 Exit codes:
 
@@ -115,7 +143,9 @@ Each scan writes:
 - `diagnostic_data.json`: structured data for deeper review or future automation.
 - `summary.md`: concise findings summary.
 - `public_summary.md`: redacted summary intended for public GitHub issues.
-- `logs/`: supporting command outputs and optional HTML reports.
+- `privacy_manifest.json`: records privacy options and excluded sensitive categories.
+- `logs/`: safe supporting logs when produced.
+- `private/`: raw event and power artifacts, present only after explicit opt-in.
 - `WindowsTriage_<Timestamp>_<Id>.zip`: local archive for private sharing.
 
 ## Interpreting Findings
@@ -144,6 +174,11 @@ Native Windows temperature readings are often incomplete on many systems. Treat 
 
 Current project docs:
 
+- `docs/README.md`
+- `docs/cli-reference.md`
+- `docs/privacy-model.md`
+- `docs/architecture.md`
+- `docs/aws-smoke.md`
 - `docs/investigation.md`
 - `docs/windows-11-overheating-research.md`
 - `docs/implementation-plan.md`
@@ -151,8 +186,9 @@ Current project docs:
 - `docs/windows-smoke-test.md`
 - `docs/release-checklist.md`
 - `docs/release-notes-0.2.0-beta.md`
+- `docs/release-notes-0.3.0-beta.1.md`
 
-The original PowerShell prototype is preserved as `Start-WindowsTriage.ps1` for reference only. New development should target the .NET solution.
+The original PowerShell prototype is archived under `legacy/` for unsupported historical reference only.
 
 ## Publishing Checklist
 
@@ -163,5 +199,5 @@ Before publishing a public beta:
 - Confirm UAC prompt appears on launch.
 - Confirm GUI scan, CLI scan, Advanced Scan, and generated zip work.
 - Confirm public GitHub issues use `public_summary.md`, not full diagnostic ZIP attachments.
-- Publish SHA-256 checksums and clearly label unsigned beta binaries.
-- Consider code signing before a stable release.
+- Require a valid timestamped SignPath signature before publishing any beta binary.
+- Publish the post-signing SHA-256 checksum, source tag, Windows/AWS evidence, and signer identity.

@@ -36,16 +36,18 @@ dotnet sonarscanner end /d:sonar.token="$SONAR_TOKEN"
 - Confirm CLI help/version work without elevation.
 - Confirm CLI collection works from an Administrator terminal.
 - Confirm privacy defaults hold.
+- Confirm the default ZIP has no private artifacts and all-opt-in `public_summary.md` remains redacted.
+- Confirm AWS Windows Server and local Windows 11 KVM evidence links are available.
 - Confirm `public_summary.md` is generated and safe to paste publicly.
 - Confirm public issue templates request `public_summary.md` or redacted snippets only.
 
 ## Package
 
-- Publish `WindowsTriage.exe`.
+- Publish the SignPath-signed `WindowsTriage.exe`.
 - Generate checksums.
-- Include release notes, unsigned-binary warning, source tag, checksum, and the smoke-test result.
-- Mark unsigned beta releases as prerelease.
-- Consider code signing before stable distribution.
+- Include release notes, source tag, post-signing checksum, signer identity, and smoke evidence.
+- Verify the expected signer, valid timestamp, and post-signing SHA-256 checksum.
+- Mark beta releases as prerelease.
 
 ## Checksums
 

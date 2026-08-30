@@ -55,4 +55,24 @@ public sealed class CliParserTests
     {
         Assert.Throws<ArgumentException>(() => CliOptions.Parse(["collect", "--sample-seconds", "5"]));
     }
+
+    [Theory]
+    [InlineData("quick", ScanProfile.Quick)]
+    [InlineData("full", ScanProfile.Full)]
+    [InlineData("advanced", ScanProfile.Advanced)]
+    public void Parse_AcceptsProfileShorthandCommands(string command, ScanProfile expected)
+    {
+        var parsed = CliOptions.Parse([command, "--open", "--print-summary"]);
+
+        Assert.Equal(expected, parsed.Options.Profile);
+        Assert.True(parsed.Options.OpenReportFolder);
+        Assert.True(parsed.Options.PrintPublicSummary);
+    }
+
+    [Fact]
+    public void Parse_RejectsConflictingStdoutFormats()
+    {
+        var error = Assert.Throws<ArgumentException>(() => CliOptions.Parse(["quick", "--json", "--print-summary"]));
+        Assert.Contains("cannot be used together", error.Message);
+    }
 }

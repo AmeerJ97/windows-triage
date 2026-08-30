@@ -1,4 +1,7 @@
 #requires -Version 5.1
+# LEGACY / UNSUPPORTED: this prototype does not implement the privacy guarantees
+# or diagnostic behavior of the maintained .NET application. Do not use it for
+# public issue reports. Use the signed WindowsTriage.exe release instead.
 <#
 .SYNOPSIS
 Collects Windows 11 overheating and high-CPU triage evidence.

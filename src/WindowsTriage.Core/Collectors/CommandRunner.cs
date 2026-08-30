@@ -69,8 +69,12 @@ internal static class CommandRunner
             var stdout = await stdoutTask.ConfigureAwait(false);
             var stderr = await stderrTask.ConfigureAwait(false);
             await File.WriteAllTextAsync(outputPath, stdout + Environment.NewLine + stderr, cancellationToken).ConfigureAwait(false);
-
-            return new CommandCapture(name, commandLine, outputPath, process.ExitCode, process.ExitCode == 0, string.IsNullOrWhiteSpace(stderr) ? null : stderr.Trim());
+            var succeeded = process.ExitCode == 0;
+            var diagnostic = string.IsNullOrWhiteSpace(stderr) ? stdout : stderr;
+            var error = succeeded ? null : string.IsNullOrWhiteSpace(diagnostic)
+                ? $"{name} exited with code {process.ExitCode}."
+                : Trim(diagnostic.Trim(), 800);
+            return new CommandCapture(name, commandLine, outputPath, process.ExitCode, succeeded, error);
         }
         catch (Exception ex)
         {
@@ -78,4 +82,6 @@ internal static class CommandRunner
             return new CommandCapture(name, commandLine, outputPath, null, false, ex.Message);
         }
     }
+
+    private static string Trim(string value, int max) => value.Length <= max ? value : value[..max] + "...";
 }

@@ -7,8 +7,14 @@ public static class CliOptions
     public static ParsedCli Parse(string[] args)
     {
         var index = 0;
+        var profile = ScanProfile.Full;
         if (args.Length > 0 && args[0].Equals("collect", StringComparison.OrdinalIgnoreCase))
         {
+            index = 1;
+        }
+        else if (args.Length > 0 && TryParseProfileCommand(args[0], out var commandProfile))
+        {
+            profile = commandProfile;
             index = 1;
         }
         else if (args.Length > 0 && !args[0].StartsWith("-", StringComparison.Ordinal))
@@ -16,15 +22,17 @@ public static class CliOptions
             throw new ArgumentException($"Unknown command: {args[0]}");
         }
 
-        var profile = ScanProfile.Full;
         string? output = null;
         var includeNetwork = false;
         var includeCommandLines = false;
         var includeMachineName = false;
+        var includePrivateArtifacts = false;
         var noZip = false;
         var json = false;
         var quiet = false;
         var verbose = false;
+        var printPublicSummary = false;
+        var openReportFolder = false;
         int? sampleSeconds = null;
         var sampleIntervalSeconds = 5;
 
@@ -48,6 +56,9 @@ public static class CliOptions
                 case "--include-machine-name":
                     includeMachineName = true;
                     break;
+                case "--include-private-artifacts":
+                    includePrivateArtifacts = true;
+                    break;
                 case "--sample-seconds":
                     sampleSeconds = ParseInt(RequireValue(args, ref index, arg), arg, 15, 900);
                     break;
@@ -66,9 +77,20 @@ public static class CliOptions
                 case "--verbose":
                     verbose = true;
                     break;
+                case "--print-summary":
+                    printPublicSummary = true;
+                    break;
+                case "--open":
+                    openReportFolder = true;
+                    break;
                 default:
                     throw new ArgumentException($"Unknown option: {arg}");
             }
+        }
+
+        if (json && printPublicSummary)
+        {
+            throw new ArgumentException("--json and --print-summary cannot be used together because both write report content to stdout.");
         }
 
         return new ParsedCli(new CollectionOptions
@@ -78,10 +100,13 @@ public static class CliOptions
             IncludeNetwork = includeNetwork,
             IncludeCommandLines = includeCommandLines,
             IncludeMachineName = includeMachineName,
+            IncludePrivateArtifacts = includePrivateArtifacts,
             NoZip = noZip,
             JsonToStdout = json,
             Quiet = quiet,
             Verbose = verbose,
+            PrintPublicSummary = printPublicSummary,
+            OpenReportFolder = openReportFolder,
             SampleSeconds = sampleSeconds,
             SampleIntervalSeconds = sampleIntervalSeconds
         });
@@ -94,6 +119,20 @@ public static class CliOptions
         "advanced" => ScanProfile.Advanced,
         _ => throw new ArgumentException($"Invalid profile: {value}")
     };
+
+    private static bool TryParseProfileCommand(string value, out ScanProfile profile)
+    {
+        profile = value.ToLowerInvariant() switch
+        {
+            "quick" => ScanProfile.Quick,
+            "full" => ScanProfile.Full,
+            "advanced" => ScanProfile.Advanced,
+            _ => ScanProfile.Full
+        };
+        return value.Equals("quick", StringComparison.OrdinalIgnoreCase)
+            || value.Equals("full", StringComparison.OrdinalIgnoreCase)
+            || value.Equals("advanced", StringComparison.OrdinalIgnoreCase);
+    }
 
     private static string RequireValue(string[] args, ref int index, string option)
     {

@@ -76,6 +76,7 @@ The maintained product is now:
 
 ## Remaining Gaps
 
-- Needs a Windows smoke result from GitHub Actions or a clean Windows 11 VM.
-- Code signing remains deferred for beta and should be revisited before stable release.
+- Elevated Quick collection and privacy assertions passed on AWS Windows Server 2025 build 26100 for the v0.3 development candidate.
+- Still needs the authoritative interactive Windows 11 KVM result and GitHub-hosted Windows smoke on the release commit.
+- SignPath Foundation enrollment and signing remain mandatory before publishing v0.3.
 - Needs optional sensor integration decision after v1 stabilizes.

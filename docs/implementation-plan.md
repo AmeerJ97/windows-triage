@@ -1,6 +1,7 @@
 # Implementation Plan
 
-Date: 2026-06-12
+Initial date: 2026-06-12
+v0.3 update: 2026-08-29
 
 ## Goal
 
@@ -18,6 +19,8 @@ Primary release artifact:
 
 The original PowerShell script remains as a prototype/reference implementation while the modular .NET app becomes the maintained product.
 
+For v0.3, the PowerShell prototype is archived under `legacy/` and is explicitly unsupported. The .NET application is the only release product.
+
 ## Design Principles
 
 - Safe by default: collect evidence, do not change settings.
@@ -27,6 +30,8 @@ The original PowerShell script remains as a prototype/reference implementation w
 - Modular: collectors, diagnosis rules, reports, GUI, and CLI are separate layers.
 - Shared core: GUI and CLI call the same `WindowsTriage.Core` service path.
 - Graceful degradation: missing WMI classes, counters, event logs, or permissions become warnings, not crashes.
+- Typed privacy boundary: diagnosis consumes typed, allowlisted sections rather than raw WMI dictionaries.
+- Evidence honesty: missing essential data produces `INCOMPLETE_DIAGNOSIS`, never an implied healthy result.
 
 ## Architecture
 
@@ -133,3 +138,11 @@ On Windows 11:
 - Optional LibreHardwareMonitor integration.
 - HTML report rendering.
 - Guided repair actions.
+
+## v0.3 release gates
+
+- Local Release build, tests, format verification, dependency audit, XML/YAML/shell checks.
+- Elevated GitHub Windows collection and recursive privacy smoke.
+- Supplemental AWS Windows Server 2025 runtime evidence with verified cleanup.
+- Interactive Windows 11 KVM GUI, UAC, SmartScreen, cancellation, locale, and privacy acceptance.
+- SignPath Foundation signing, Authenticode/timestamp verification, and post-signing checksum.

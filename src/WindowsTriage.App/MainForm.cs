@@ -9,14 +9,18 @@ public sealed class MainForm : Form
     private readonly CheckBox _includeNetwork = new();
     private readonly CheckBox _includeCommandLines = new();
     private readonly CheckBox _includeMachineName = new();
+    private readonly CheckBox _includePrivateArtifacts = new();
     private readonly Label _profileDescription = new();
     private readonly Button _startButton = new();
+    private readonly Button _cancelButton = new();
     private readonly Button _openFolderButton = new();
     private readonly Button _copySummaryButton = new();
     private readonly ProgressBar _progress = new();
     private readonly TextBox _status = new();
     private readonly ListView _findings = new();
+    private readonly TextBox _findingDetails = new();
     private ReportPackage? _lastPackage;
+    private CancellationTokenSource? _scanCancellation;
 
     public MainForm()
     {
@@ -101,12 +105,24 @@ public sealed class MainForm : Form
         _includeMachineName.Margin = new Padding(18, 6, 0, 0);
         options.Controls.Add(_includeMachineName);
 
+        _includePrivateArtifacts.Text = "Retain private raw artifacts";
+        _includePrivateArtifacts.AutoSize = true;
+        _includePrivateArtifacts.Margin = new Padding(18, 6, 0, 0);
+        options.Controls.Add(_includePrivateArtifacts);
+
         _startButton.Text = "Start Scan";
         _startButton.Width = 132;
         _startButton.Height = 34;
         _startButton.Margin = new Padding(18, 0, 0, 0);
         _startButton.Click += async (_, _) => await StartScanAsync().ConfigureAwait(true);
         options.Controls.Add(_startButton);
+
+        _cancelButton.Text = "Cancel";
+        _cancelButton.Width = 90;
+        _cancelButton.Height = 34;
+        _cancelButton.Enabled = false;
+        _cancelButton.Click += (_, _) => _scanCancellation?.Cancel();
+        options.Controls.Add(_cancelButton);
 
         _profileDescription.AutoSize = true;
         _profileDescription.ForeColor = SystemColors.GrayText;
@@ -127,10 +143,18 @@ public sealed class MainForm : Form
         _findings.View = View.Details;
         _findings.FullRowSelect = true;
         _findings.Columns.Add("Severity", 90);
+        _findings.Columns.Add("Confidence", 90);
         _findings.Columns.Add("Category", 100);
         _findings.Columns.Add("Finding", 330);
-        _findings.Columns.Add("Recommendation", 680);
-        body.Panel1.Controls.Add(_findings);
+        _findings.SelectedIndexChanged += (_, _) => ShowSelectedFinding();
+        var findingPanel = new SplitContainer { Dock = DockStyle.Fill, Orientation = Orientation.Horizontal, SplitterDistance = 150 };
+        findingPanel.Panel1.Controls.Add(_findings);
+        _findingDetails.Dock = DockStyle.Fill;
+        _findingDetails.Multiline = true;
+        _findingDetails.ReadOnly = true;
+        _findingDetails.ScrollBars = ScrollBars.Vertical;
+        findingPanel.Panel2.Controls.Add(_findingDetails);
+        body.Panel1.Controls.Add(findingPanel);
 
         _status.Dock = DockStyle.Fill;
         _status.Multiline = true;
@@ -170,23 +194,30 @@ public sealed class MainForm : Form
     private async Task StartScanAsync()
     {
         _startButton.Enabled = false;
+        _cancelButton.Enabled = true;
         _openFolderButton.Enabled = false;
         _copySummaryButton.Enabled = false;
         _findings.Items.Clear();
         _status.Clear();
+        _findingDetails.Clear();
         _progress.Style = ProgressBarStyle.Marquee;
+        _scanCancellation = new CancellationTokenSource();
 
         try
         {
             var runner = new TriageRunner();
             var progress = new Progress<string>(message => AppendStatus(message));
-            _lastPackage = await runner.RunAsync(BuildOptions(), progress).ConfigureAwait(true);
+            _lastPackage = await runner.RunAsync(BuildOptions(), progress, _scanCancellation.Token).ConfigureAwait(true);
             RenderResults(_lastPackage);
             AppendStatus($"Findings: {_lastPackage.Data.Findings.Count}. Collection warnings: {_lastPackage.Data.Warnings.Count}.");
             AppendStatus($"Report: {_lastPackage.TextReportPath}");
             AppendStatus($"Zip: {_lastPackage.ZipPath ?? "not created"}");
             _openFolderButton.Enabled = true;
             _copySummaryButton.Enabled = true;
+        }
+        catch (OperationCanceledException)
+        {
+            AppendStatus("Scan canceled. Incomplete report files were removed.");
         }
         catch (Exception ex)
         {
@@ -198,6 +229,9 @@ public sealed class MainForm : Form
             _progress.Style = ProgressBarStyle.Continuous;
             _progress.Value = 100;
             _startButton.Enabled = true;
+            _cancelButton.Enabled = false;
+            _scanCancellation?.Dispose();
+            _scanCancellation = null;
         }
     }
 
@@ -216,6 +250,8 @@ public sealed class MainForm : Form
             IncludeNetwork = _includeNetwork.Checked,
             IncludeCommandLines = _includeCommandLines.Checked,
             IncludeMachineName = _includeMachineName.Checked
+            ,
+            IncludePrivateArtifacts = _includePrivateArtifacts.Checked
         };
     }
 
@@ -225,12 +261,22 @@ public sealed class MainForm : Form
         foreach (var finding in package.Data.Findings.OrderBy(f => f.Severity).ThenBy(f => f.Category))
         {
             var item = new ListViewItem(finding.Severity.ToString());
+            item.SubItems.Add(finding.Confidence.ToString());
             item.SubItems.Add(finding.Category);
             item.SubItems.Add(finding.Title);
-            item.SubItems.Add(finding.Recommendation);
             item.Tag = finding;
             _findings.Items.Add(item);
         }
+    }
+
+    private void ShowSelectedFinding()
+    {
+        if (_findings.SelectedItems.Count == 0 || _findings.SelectedItems[0].Tag is not Finding finding)
+        {
+            _findingDetails.Clear();
+            return;
+        }
+        _findingDetails.Text = $"Evidence: {finding.Evidence}{Environment.NewLine}{Environment.NewLine}Recommendation: {finding.Recommendation}";
     }
 
     private void AppendStatus(string message)
@@ -268,7 +314,7 @@ public sealed class MainForm : Form
 
         try
         {
-            Clipboard.SetText(File.ReadAllText(_lastPackage.SummaryPath));
+            Clipboard.SetText(File.ReadAllText(_lastPackage.PublicSummaryPath));
         }
         catch (Exception ex)
         {

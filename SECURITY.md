@@ -30,6 +30,15 @@ Default reports omit:
 - network addressing details,
 - process/service command lines,
 - process executable paths.
+- hardware serial numbers and device identifiers,
+- absolute local paths,
+- raw event messages and raw power reports.
 
 Users can explicitly opt into some deeper details for troubleshooting. Review
 `diagnostic_report.txt` and `diagnostic_data.json` before sharing publicly.
+Raw private artifacts require a separate explicit opt-in and must never be
+attached to public issues. `public_summary.md` is redacted independently of all
+collection opt-ins.
+
+See `docs/privacy-model.md` for the field-level policy, artifact roles, explicit
+opt-ins, and release privacy invariants.

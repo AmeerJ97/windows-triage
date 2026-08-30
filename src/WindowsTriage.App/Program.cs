@@ -30,6 +30,18 @@ internal static class Program
             return 0;
         }
 
+        if (args.Length == 1 && IsCommand(args[0], "profiles"))
+        {
+            Console.WriteLine(ProfileText());
+            return 0;
+        }
+
+        if (args.Length == 1 && IsCommand(args[0], "privacy"))
+        {
+            Console.WriteLine(PrivacyText());
+            return 0;
+        }
+
         if (args.Length == 0 || IsCommand(args[0], "gui"))
         {
             if (!IsAdministrator())
@@ -56,7 +68,11 @@ internal static class Program
 
             if (parsed.Options.JsonToStdout)
             {
-                Console.WriteLine(JsonSerializer.Serialize(package.Data, new JsonSerializerOptions { WriteIndented = true }));
+                Console.WriteLine(JsonSerializer.Serialize(package.Data, new JsonSerializerOptions { WriteIndented = true, PropertyNamingPolicy = JsonNamingPolicy.CamelCase }));
+            }
+            else if (parsed.Options.PrintPublicSummary)
+            {
+                Console.WriteLine(await File.ReadAllTextAsync(package.PublicSummaryPath).ConfigureAwait(false));
             }
             else if (!parsed.Options.Quiet)
             {
@@ -64,7 +80,18 @@ internal static class Program
                 Console.WriteLine("Windows Triage complete.");
                 Console.WriteLine($"Report: {package.TextReportPath}");
                 Console.WriteLine($"JSON:   {package.JsonReportPath}");
+                Console.WriteLine($"Public: {package.PublicSummaryPath}");
+                Console.WriteLine($"Privacy:{package.PrivacyManifestPath}");
                 Console.WriteLine($"Zip:    {package.ZipPath ?? "not created"}");
+                if (package.Data.Warnings.Count > 0)
+                {
+                    Console.WriteLine($"Warnings: {package.Data.Warnings.Count} (the scan completed; review the report for details)");
+                }
+            }
+
+            if (parsed.Options.OpenReportFolder)
+            {
+                OpenFolder(package.ReportFolder);
             }
 
             return package.Data.Warnings.Count == 0 ? 0 : 1;
@@ -105,6 +132,9 @@ internal static class Program
         Usage:
           WindowsTriage.exe gui
           WindowsTriage.exe collect [options]
+          WindowsTriage.exe quick|full|advanced [options]
+          WindowsTriage.exe profiles
+          WindowsTriage.exe privacy
           WindowsTriage.exe --help
           WindowsTriage.exe --version
 
@@ -114,13 +144,57 @@ internal static class Program
           --include-network                 Include IP addressing details.
           --include-command-lines           Include process/service command lines.
           --include-machine-name            Include the local computer name in reports.
+          --include-private-artifacts       Retain raw reports that may contain machine identifiers.
           --sample-seconds N                Override profile sample duration.
           --sample-interval-seconds N       Override sample interval.
           --no-zip                          Do not create zip archive.
           --json                            Write collected data JSON to stdout.
+          --print-summary                   Write the public summary to stdout.
+          --open                            Open the report folder after collection.
           --quiet                           Suppress progress output.
-          --verbose                         Reserved for more detailed CLI output.
+          --verbose                         Show collector timing and command status details.
         """;
+
+    private static string ProfileText() =>
+        """
+        Scan profiles:
+          quick      20-second sample for a problem happening now.
+          full       60-second balanced scan (recommended default).
+          advanced  120-second sample plus deeper power and driver evidence.
+
+        Examples:
+          WindowsTriage.exe quick --output C:\Temp
+          WindowsTriage.exe full --print-summary
+          WindowsTriage.exe advanced --include-private-artifacts
+        """;
+
+    private static string PrivacyText() =>
+        """
+        Privacy defaults:
+          Machine name, usernames, hardware IDs, local paths, network addresses,
+          command lines, raw event messages, and raw power reports are omitted.
+
+        Explicit opt-ins:
+          --include-machine-name
+          --include-network
+          --include-command-lines
+          --include-private-artifacts
+
+        Share public_summary.md publicly. Keep ZIP bundles private, especially
+        when any opt-in is enabled.
+        """;
+
+    private static void OpenFolder(string folder)
+    {
+        try
+        {
+            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo { FileName = folder, UseShellExecute = true });
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"Collection succeeded, but the report folder could not be opened: {ex.Message}");
+        }
+    }
 
     private static bool IsAdministrator()
     {

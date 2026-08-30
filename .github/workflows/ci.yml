@@ -1,3 +1,4 @@
+---
 name: ci
 
 on:
@@ -16,18 +17,24 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
 
       - name: Setup .NET
-        uses: actions/setup-dotnet@v4
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68  # v6.0.0
         with:
           dotnet-version: 10.0.x
 
       - name: Restore
-        run: dotnet restore
+        run: dotnet restore --locked-mode
 
       - name: Test
         run: dotnet test --no-restore --configuration Release
+
+      - name: Format
+        run: dotnet format --verify-no-changes --no-restore
+
+      - name: Audit dependencies
+        run: dotnet package list --vulnerable --include-transitive --no-restore
 
       - name: Publish
         run: dotnet publish .\src\WindowsTriage.App\WindowsTriage.App.csproj -c Release -r win-x64 --self-contained true

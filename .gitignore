@@ -54,3 +54,4 @@ coverage.opencover.xml
 
 # Early Drafts
 /draft_script.ps1
+.artifacts/

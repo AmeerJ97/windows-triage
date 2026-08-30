@@ -43,6 +43,7 @@ Confirm the report folder contains:
 - `diagnostic_data.json`
 - `summary.md`
 - `public_summary.md`
+- `privacy_manifest.json`
 - `logs\`
 - a sibling `.zip` archive
 
@@ -70,6 +71,11 @@ Select-String -Path .\diagnostic_data.json -Pattern 'userName|computerName|Start
 ```
 
 Expected result: no matches.
+
+Also confirm the default report and ZIP have no `private\` directory. Run a
+second collection with all privacy opt-ins and confirm `private\` exists while
+`public_summary.md` still omits machine name, username, local paths, network
+addresses, command lines, SIDs, and MAC addresses.
 
 ## CLI Smoke
 

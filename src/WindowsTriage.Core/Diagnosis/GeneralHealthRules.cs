@@ -4,241 +4,138 @@ public sealed class GeneralHealthRules : IDiagnosisRule
 {
     public IEnumerable<Finding> Analyze(TriageData data)
     {
-        foreach (var finding in EventFindings(data))
-        {
-            yield return finding;
-        }
-
-        foreach (var finding in PerformanceFindings(data))
-        {
-            yield return finding;
-        }
-
-        foreach (var finding in ResourceFindings(data))
-        {
-            yield return finding;
-        }
-
-        foreach (var finding in ThermalFindings(data))
-        {
-            yield return finding;
-        }
+        foreach (var finding in EventFindings(data)) yield return finding;
+        foreach (var finding in PerformanceFindings(data)) yield return finding;
+        foreach (var finding in ResourceFindings(data)) yield return finding;
+        foreach (var finding in SecurityFindings(data)) yield return finding;
+        foreach (var finding in PowerFindings(data)) yield return finding;
+        foreach (var finding in ThermalFindings(data)) yield return finding;
     }
+
+    public static bool HasEssentialEvidence(TriageData data)
+        => data.Sections.Events is not null
+           && data.Sections.Performance?.Summary.CpuAvailable == true
+           && data.Sections.Storage is not null
+           && data.Sections.Thermal is not null;
 
     private static IEnumerable<Finding> EventFindings(TriageData data)
     {
-        var events = Rows(data.Section(SectionNames.Events).GetValueOrDefault("recentEvents")).ToList();
+        var events = data.Sections.Events?.RecentEvents ?? Array.Empty<EventRecordInfo>();
+        if (Latest(events, 86, "Kernel-Power") is { } thermal)
+            yield return Finding("THERMAL_SHUTDOWN_EVENT", FindingSeverity.Critical, FindingConfidence.High, "Thermal", "Windows recorded a critical thermal shutdown", $"Kernel-Power event 86 was found. Most recent: {thermal.TimeCreated:O}.", "Prioritize cooling hardware, blocked vents, fan operation, heatsink seating, thermal paste, and OEM firmware updates.");
 
-        if (HasEvent(events, "Microsoft-Windows-Kernel-Power", 86, out var thermal))
-        {
-            yield return new Finding(
-                "THERMAL_SHUTDOWN_EVENT",
-                FindingSeverity.Critical,
-                FindingConfidence.High,
-                "Thermal",
-                "Windows recorded a critical thermal shutdown",
-                $"Kernel-Power event 86 was found. Most recent: {thermal.GetValueOrDefault("timeCreated")}.",
-                "Prioritize cooling hardware: fan operation, heatsink seating, thermal paste, blocked vents, and OEM BIOS or thermal-control updates.");
-        }
+        var throttle = Latest(events, 37, "Kernel-Processor-Power");
+        var averageCpu = data.Sections.Performance?.Summary.AverageCpuPercent;
+        var completed = data.CompletedAt ?? DateTimeOffset.Now;
+        if (throttle?.TimeCreated is { } throttleTime && averageCpu >= 65 && throttleTime >= completed.AddMinutes(-30))
+            yield return Finding("CPU_LIMIT_UNDER_LOAD", FindingSeverity.Warning, FindingConfidence.Medium, "Power", "CPU limiting and elevated load occurred close together", $"CPU averaged {averageCpu:0.#}% and processor-power event 37 occurred at {throttleTime:O}.", "Check OEM power mode, cooling, BIOS/UEFI updates, and whether the workload is expected. These signals are correlated but do not prove a thermal cause.");
+        else if (throttle is not null)
+            yield return Finding("FIRMWARE_CPU_LIMIT", FindingSeverity.Warning, FindingConfidence.High, "Power", "Firmware or platform policy limited CPU speed", $"Kernel-Processor-Power event 37 was found. Most recent: {throttle.TimeCreated:O}.", "Check OEM power mode, BIOS/UEFI updates, thermal settings, and whether the system is power or thermally capped.");
 
-        if (HasEvent(events, "Microsoft-Windows-Kernel-Processor-Power", 37, out var throttle))
-        {
-            yield return new Finding(
-                "FIRMWARE_CPU_LIMIT",
-                FindingSeverity.Warning,
-                FindingConfidence.High,
-                "Power",
-                "Firmware or platform policy limited CPU speed",
-                $"Kernel-Processor-Power event 37 was found. Most recent: {throttle.GetValueOrDefault("timeCreated")}.",
-                "Check OEM power mode, BIOS/UEFI updates, thermal settings, and whether the system is power or thermally capped.");
-        }
+        var shutdown = Latest(events, 41, "Kernel-Power") ?? Latest(events, 6008);
+        if (shutdown is not null)
+            yield return Finding("UNCLEAN_SHUTDOWN", FindingSeverity.Warning, FindingConfidence.Medium, "Stability", "Unexpected shutdown or restart events were found", $"Most recent matching event: {shutdown.TimeCreated:O}.", "Correlate shutdown times with heat, charger or battery behavior, WHEA errors, and heavy workloads.");
 
-        if (HasEvent(events, "Microsoft-Windows-Kernel-Power", 41, out var shutdown) || HasEvent(events, null, 6008, out shutdown))
-        {
-            yield return new Finding(
-                "UNCLEAN_SHUTDOWN",
-                FindingSeverity.Warning,
-                FindingConfidence.Medium,
-                "Stability",
-                "Unexpected shutdown or restart events were found",
-                $"Most recent matching event: {shutdown.GetValueOrDefault("timeCreated")}.",
-                "Correlate shutdown times with heat, charger/battery behavior, WHEA errors, and heavy workloads.");
-        }
+        var whea = Latest(events, 18, "WHEA-Logger") ?? Latest(events, 19, "WHEA-Logger");
+        if (whea is not null)
+            yield return Finding("WHEA_HARDWARE_ERROR", FindingSeverity.Critical, FindingConfidence.High, "Hardware", "Windows hardware error events were found", $"WHEA event 18/19 was found. Most recent: {whea.TimeCreated:O}.", "Investigate thermal instability, BIOS/chipset/GPU drivers, memory/storage health, and hardware faults.");
 
-        if (HasEvent(events, "Microsoft-Windows-WHEA-Logger", 18, out var whea) || HasEvent(events, "Microsoft-Windows-WHEA-Logger", 19, out whea))
-        {
-            yield return new Finding(
-                "WHEA_HARDWARE_ERROR",
-                FindingSeverity.Critical,
-                FindingConfidence.High,
-                "Hardware",
-                "Windows hardware error events were found",
-                $"WHEA-Logger event 18/19 was found. Most recent: {whea.GetValueOrDefault("timeCreated")}.",
-                "Investigate thermal instability, BIOS/chipset/GPU drivers, memory/storage health, and hardware faults.");
-        }
+        var bugchecks = events.Where(e => e.Id == 1001 && (Contains(e.ProviderName, "BugCheck") || Contains(e.ProviderName, "WER-SystemErrorReporting"))).ToList();
+        if (bugchecks.Count > 0)
+            yield return Finding("BUGCHECK_EVENT", FindingSeverity.Warning, FindingConfidence.High, "Stability", "Windows recorded a bugcheck", $"{bugchecks.Count} bugcheck event(s) were found in 14 days. Most recent: {bugchecks.Max(e => e.TimeCreated):O}.", "Review dump files and correlate the crash time with drivers, WHEA events, heat, and recent changes.");
+
+        var ntfs = events.Where(e => e.Id == 55 && Contains(e.ProviderName, "Ntfs")).ToList();
+        if (ntfs.Count > 0)
+            yield return Finding("NTFS_CORRUPTION", FindingSeverity.Critical, FindingConfidence.High, "Storage", "Windows reported file-system corruption", $"{ntfs.Count} NTFS event 55 occurrence(s) were found. Most recent: {ntfs.Max(e => e.TimeCreated):O}.", "Back up important data promptly, inspect disk health, and run the appropriate Windows file-system diagnostics.");
     }
 
     private static IEnumerable<Finding> PerformanceFindings(TriageData data)
     {
-        var performance = data.Section(SectionNames.Performance);
-        var summary = Map(performance.GetValueOrDefault("summary"));
-        var averageCpu = Number(summary.GetValueOrDefault("averageCpuPercent"));
-        var maxCpu = Number(summary.GetValueOrDefault("maxCpuPercent"));
-
-        if (averageCpu >= 85)
+        var performance = data.Sections.Performance;
+        if (performance is null || !performance.Summary.CpuAvailable)
         {
-            yield return new Finding(
-                "SUSTAINED_HIGH_CPU",
-                FindingSeverity.Critical,
-                FindingConfidence.High,
-                "Performance",
-                "CPU usage was very high during the live sample",
-                $"Average CPU {averageCpu}%, max CPU {maxCpu}%.",
-                "Review top CPU processes. If one process dominates unexpectedly, update, disable, uninstall, or troubleshoot that application or service.");
-        }
-        else if (averageCpu >= 65)
-        {
-            yield return new Finding(
-                "SUSTAINED_HIGH_CPU",
-                FindingSeverity.Warning,
-                FindingConfidence.Medium,
-                "Performance",
-                "CPU usage was elevated during the live sample",
-                $"Average CPU {averageCpu}%, max CPU {maxCpu}%.",
-                "If the system was idle, review top CPU processes and startup/background services.");
+            yield return Finding("PERFORMANCE_DATA_UNAVAILABLE", FindingSeverity.Info, FindingConfidence.High, "Performance", "CPU performance data was unavailable", "The scan produced no valid CPU samples.", "Repair Windows performance instrumentation or rerun as Administrator before treating this scan as healthy.");
+            yield break;
         }
 
-        var averageInterrupt = Number(summary.GetValueOrDefault("averageInterruptPercent"));
-        if (averageInterrupt >= 10)
-        {
-            yield return new Finding(
-                "HIGH_INTERRUPT_TIME",
-                FindingSeverity.Warning,
-                FindingConfidence.Medium,
-                "Drivers",
-                "CPU interrupt time was elevated",
-                $"Average interrupt time {averageInterrupt}%.",
-                "High interrupt time can point to a driver or device issue. Check chipset, storage, network, Bluetooth, and GPU drivers.");
-        }
+        var summary = performance.Summary;
+        var profile = data.Sections.Run?.Profile ?? ScanProfile.Full;
+        if (summary.AverageCpuPercent >= 85)
+            yield return Finding("SUSTAINED_HIGH_CPU", FindingSeverity.Warning, profile == ScanProfile.Quick ? FindingConfidence.Medium : FindingConfidence.High, "Performance", "CPU usage was very high during the live sample", $"Average CPU {summary.AverageCpuPercent:0.#}%, max {summary.MaxCpuPercent:0.#}% across {summary.ValidCpuSampleCount} valid samples.", "Review top CPU processes and confirm whether the workload was expected.");
+        else if (summary.AverageCpuPercent >= 65)
+            yield return Finding("SUSTAINED_HIGH_CPU", FindingSeverity.Warning, profile == ScanProfile.Quick ? FindingConfidence.Low : FindingConfidence.Medium, "Performance", "CPU usage was elevated during the live sample", $"Average CPU {summary.AverageCpuPercent:0.#}%, max {summary.MaxCpuPercent:0.#}% across {summary.ValidCpuSampleCount} valid samples.", "If the system was expected to be idle, review top CPU processes and background services.");
 
-        var topCpu = Rows(performance.GetValueOrDefault("topCpuProcesses"))
-            .OrderByDescending(row => Number(row.GetValueOrDefault("cpuPercent")))
-            .FirstOrDefault();
+        if (summary.AverageInterruptPercent >= 10)
+            yield return Finding("HIGH_INTERRUPT_TIME", FindingSeverity.Warning, FindingConfidence.Medium, "Drivers", "CPU interrupt time was elevated", $"Average interrupt time {summary.AverageInterruptPercent:0.#}%.", "Check chipset, storage, network, Bluetooth, and GPU drivers.");
 
-        if (topCpu is not null && Number(topCpu.GetValueOrDefault("cpuPercent")) >= 30)
+        var top = performance.TopCpuProcesses.OrderByDescending(p => p.CpuPercent).FirstOrDefault();
+        if (top?.CpuPercent >= 30)
+            yield return Finding("RUNAWAY_PROCESS", FindingSeverity.Warning, profile == ScanProfile.Quick ? FindingConfidence.Medium : FindingConfidence.High, "Performance", $"A process consumed a large share of CPU: {top.Name}", $"PID {top.Id}, estimated CPU {top.CpuPercent:0.#}% during the sample.", "Identify the application or service and check for updates, stuck scans, sync loops, or malware.");
+
+        if (IsActiveThermalLoad(data))
         {
-            yield return new Finding(
-                "RUNAWAY_PROCESS",
-                FindingSeverity.Warning,
-                FindingConfidence.High,
-                "Performance",
-                $"A process consumed a large share of CPU: {topCpu.GetValueOrDefault("name")}",
-                $"PID {topCpu.GetValueOrDefault("id")}, estimated CPU {topCpu.GetValueOrDefault("cpuPercent")}% during sample.",
-                "Identify the application or service behind the process and check for updates, stuck scans, sync loops, or malware.");
+            var hottest = data.Sections.Thermal!.Readings.Where(r => r.TemperatureC.HasValue).Max(r => r.TemperatureC);
+            yield return Finding("ACTIVE_THERMAL_LOAD", FindingSeverity.Warning, FindingConfidence.Medium, "Thermal", "Elevated CPU load and a high thermal-zone reading occurred together", $"CPU averaged {summary.AverageCpuPercent:0.#}% and the highest native thermal-zone reading was {hottest:0.#} C.", "Reduce the workload and check cooling. The signals occurred together but do not prove the CPU package temperature or root cause.");
         }
     }
 
     private static IEnumerable<Finding> ResourceFindings(TriageData data)
     {
-        var memoryRows = data.ListSection(SectionNames.Memory);
-        var storageRows = data.ListSection(SectionNames.Storage);
+        var summary = data.Sections.Performance?.Summary;
+        if (summary?.MinAvailableMemoryMB is > 0 and < 1024)
+            yield return Finding("MEMORY_PRESSURE", FindingSeverity.Warning, FindingConfidence.Medium, "Memory", "Available memory was low during the sample", $"Minimum available memory was {summary.MinAvailableMemoryMB:0} MB.", "Close memory-heavy apps, reduce startup items, or consider a RAM upgrade.");
 
-        var totalMemory = memoryRows.Sum(row => Number(row.GetValueOrDefault("Capacity")));
-        if (totalMemory > 0)
+        var storage = data.Sections.Storage;
+        if (storage is not null)
         {
-            var performance = data.Section(SectionNames.Performance);
-            var summary = Map(performance.GetValueOrDefault("summary"));
-            var minAvailableMb = Number(summary.GetValueOrDefault("minAvailableMemoryMB"));
-            if (minAvailableMb > 0 && minAvailableMb < 1024)
+            foreach (var disk in storage.LogicalDisks)
             {
-                yield return new Finding(
-                    "MEMORY_PRESSURE",
-                    FindingSeverity.Warning,
-                    FindingConfidence.Medium,
-                    "Memory",
-                    "Available memory was low during the sample",
-                    $"Minimum available memory was {minAvailableMb} MB.",
-                    "Close memory-heavy apps, reduce startup items, or consider a RAM upgrade. Paging can increase disk and CPU activity.");
+                if (disk.SizeBytes is not > 0 || disk.FreeSpaceBytes is null) continue;
+                var used = Math.Round((disk.SizeBytes.Value - disk.FreeSpaceBytes.Value) * 100d / disk.SizeBytes.Value, 1);
+                if (used >= 90) yield return Finding("LOW_DISK_SPACE", FindingSeverity.Warning, FindingConfidence.High, "Storage", $"Drive {disk.DeviceId} is nearly full", $"{used}% used.", "Free disk space to protect updates, paging, indexing, and responsiveness.");
             }
+            if (storage.FailurePredicted == true)
+                yield return Finding("DISK_FAILURE_PREDICTED", FindingSeverity.Critical, FindingConfidence.High, "Storage", "A storage device reports predicted failure", "Windows storage failure prediction returned true.", "Back up important data immediately and replace or professionally assess the affected drive.");
+            else if (storage.PhysicalDisks.Any(d => d.HealthStatus is 1 or 2 || (!string.IsNullOrWhiteSpace(d.Status) && !d.Status.Equals("OK", StringComparison.OrdinalIgnoreCase))))
+                yield return Finding("DISK_HEALTH_DEGRADED", FindingSeverity.Warning, FindingConfidence.High, "Storage", "A storage device reports degraded health", "At least one physical disk did not report a healthy status.", "Back up important data and inspect the device with the OEM or Windows storage diagnostic tools.");
         }
 
-        foreach (var disk in storageRows)
-        {
-            var size = Number(disk.GetValueOrDefault("Size"));
-            var free = Number(disk.GetValueOrDefault("FreeSpace"));
-            if (size <= 0 || free < 0)
-            {
-                continue;
-            }
+        var power = data.Sections.Power;
+        if (power?.BatteryHealthPercent is > 0 and < 80)
+            yield return Finding("BATTERY_WEAR", FindingSeverity.Warning, FindingConfidence.High, "Battery", "Battery full-charge capacity is below 80% of design capacity", $"Battery health is {power.BatteryHealthPercent:0.#}% using {power.BatteryCapacitySource ?? "available capacity data"}.", "Plan for battery replacement if runtime or stability is impaired.");
+    }
 
-            var usedPercent = Math.Round(((size - free) / size) * 100, 1);
-            if (usedPercent >= 90)
-            {
-                yield return new Finding(
-                    "LOW_DISK_SPACE",
-                    FindingSeverity.Warning,
-                    FindingConfidence.High,
-                    "Storage",
-                    $"Drive {disk.GetValueOrDefault("DeviceID")} is nearly full",
-                    $"{usedPercent}% used.",
-                    "Free disk space. Low space can worsen updates, paging, indexing, and responsiveness.");
-            }
-        }
+    private static IEnumerable<Finding> SecurityFindings(TriageData data)
+    {
+        var defender = data.Sections.UpdatesSecurity?.Defender;
+        if (defender is null) yield break;
+        if (defender.AntivirusEnabled == false || defender.RealTimeProtectionEnabled == false)
+            yield return Finding("DEFENDER_INACTIVE", FindingSeverity.Warning, FindingConfidence.Medium, "Security", "Microsoft Defender antivirus protection is inactive", "Defender reported antivirus or real-time protection disabled.", "Confirm that another trusted antivirus is active; otherwise re-enable and update Microsoft Defender.");
+        if (defender.AntivirusEnabled == true && defender.AntivirusSignatureAge > 3)
+            yield return Finding("DEFENDER_SIGNATURE_STALE", FindingSeverity.Warning, FindingConfidence.High, "Security", "Microsoft Defender signatures are stale", $"Antivirus signature age is {defender.AntivirusSignatureAge} days.", "Connect to Windows Update or Defender update services and refresh security intelligence.");
+    }
+
+    private static IEnumerable<Finding> PowerFindings(TriageData data)
+    {
+        if (data.Sections.Power?.EnergyErrorCount > 0)
+            yield return Finding("POWER_EFFICIENCY_ERRORS", FindingSeverity.Warning, FindingConfidence.Medium, "Power", "Windows energy analysis reported efficiency errors", $"powercfg energy analysis reported {data.Sections.Power.EnergyErrorCount} error(s) and {data.Sections.Power.EnergyWarningCount ?? 0} warning(s).", "Review the retained private energy report if enabled, then check drivers, sleep blockers, and OEM power software.");
     }
 
     private static IEnumerable<Finding> ThermalFindings(TriageData data)
     {
-        var thermal = data.Section(SectionNames.Thermal);
-        var readings = Rows(thermal.GetValueOrDefault("readings")).ToList();
-
-        if (readings.Count == 0)
+        var thermal = data.Sections.Thermal;
+        if (thermal is null || thermal.Readings.Count == 0)
         {
-            yield return new Finding(
-                "TEMPERATURE_UNAVAILABLE",
-                FindingSeverity.Info,
-                FindingConfidence.High,
-                "Thermal",
-                "Native Windows temperature readings were unavailable",
-                "No ACPI or thermal-zone counter readings were returned.",
-                "Use event logs, CPU behavior, and optional hardware sensor tools for actual CPU/GPU temperatures.");
+            yield return Finding("TEMPERATURE_UNAVAILABLE", FindingSeverity.Info, FindingConfidence.High, "Thermal", "Native Windows temperature readings were unavailable", "No ACPI or thermal-zone readings were returned.", "Use event logs, CPU behavior, and an optional hardware sensor tool for actual CPU/GPU temperatures.");
             yield break;
         }
-
-        foreach (var reading in readings.Where(row => Number(row.GetValueOrDefault("TemperatureC")) >= 85))
-        {
-            yield return new Finding(
-                "NATIVE_THERMAL_READING_HIGH",
-                FindingSeverity.Warning,
-                FindingConfidence.Low,
-                "Thermal",
-                "A native Windows thermal-zone reading is high",
-                $"{reading.GetValueOrDefault("Name") ?? reading.GetValueOrDefault("InstanceName")} reported {reading.GetValueOrDefault("TemperatureC")} C.",
-                "Treat this as a clue, not a final CPU temperature. Corroborate with thermal events or a hardware sensor tool.");
-        }
+        if (IsActiveThermalLoad(data)) yield break;
+        foreach (var reading in thermal.Readings.Where(r => r.TemperatureC >= 85))
+            yield return Finding("NATIVE_THERMAL_READING_HIGH", FindingSeverity.Warning, FindingConfidence.Low, "Thermal", "A native Windows thermal-zone reading is high", $"{reading.Name ?? "Thermal zone"} reported {reading.TemperatureC:0.#} C.", "Treat this as a clue, not a final CPU temperature. Corroborate it with events or a hardware sensor tool.");
     }
 
-    private static bool HasEvent(IEnumerable<Dictionary<string, object?>> events, string? provider, int id, out Dictionary<string, object?> match)
-    {
-        match = events.FirstOrDefault(row =>
-            Number(row.GetValueOrDefault("id")) == id
-            && (provider is null || string.Equals(row.GetValueOrDefault("providerName")?.ToString(), provider, StringComparison.OrdinalIgnoreCase)))
-            ?? new Dictionary<string, object?>();
-
-        return match.Count > 0;
-    }
-
-    private static IEnumerable<Dictionary<string, object?>> Rows(object? value)
-    {
-        return value as IEnumerable<Dictionary<string, object?>> ?? Array.Empty<Dictionary<string, object?>>();
-    }
-
-    private static Dictionary<string, object?> Map(object? value)
-    {
-        return value as Dictionary<string, object?> ?? new Dictionary<string, object?>();
-    }
-
-    private static double Number(object? value)
-    {
-        return double.TryParse(value?.ToString(), out var number) ? number : 0;
-    }
+    private static bool IsActiveThermalLoad(TriageData data) => data.Sections.Performance?.Summary.AverageCpuPercent >= 65 && data.Sections.Thermal?.Readings.Any(r => r.TemperatureC >= 85) == true;
+    private static EventRecordInfo? Latest(IEnumerable<EventRecordInfo> events, int id, string? providerContains = null) => events.Where(e => e.Id == id && (providerContains is null || Contains(e.ProviderName, providerContains))).OrderByDescending(e => e.TimeCreated).FirstOrDefault();
+    private static bool Contains(string? value, string part) => value?.Contains(part, StringComparison.OrdinalIgnoreCase) == true;
+    private static Finding Finding(string id, FindingSeverity severity, FindingConfidence confidence, string category, string title, string evidence, string recommendation) => new(id, severity, confidence, category, title, evidence, recommendation);
 }
