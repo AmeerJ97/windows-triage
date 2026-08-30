@@ -15,8 +15,15 @@ jobs:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+      - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68  # v6.0.0
+        with:
+          dotnet-version: 10.0.x
       - uses: github/codeql-action/init@fddeee1a7ece751b577e409a89057319e3172939  # v4
         with:
           languages: csharp
-      - uses: github/codeql-action/autobuild@fddeee1a7ece751b577e409a89057319e3172939  # v4
+          build-mode: manual
+      - name: Build analyzed solution
+        run: |
+          dotnet restore --locked-mode
+          dotnet build WindowsTriage.sln --configuration Release --no-restore
       - uses: github/codeql-action/analyze@fddeee1a7ece751b577e409a89057319e3172939  # v4

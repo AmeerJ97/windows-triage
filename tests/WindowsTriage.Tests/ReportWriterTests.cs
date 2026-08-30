@@ -58,8 +58,10 @@ public sealed class ReportWriterTests
         {
             File.WriteAllText(Path.Combine(root, "public_summary.md"), "safe");
             var zip = new ArchiveWriter().CreateZip(root);
-            using var archive = ZipFile.OpenRead(zip);
-            Assert.DoesNotContain(archive.Entries, e => e.FullName.StartsWith("private/", StringComparison.OrdinalIgnoreCase));
+            using (var archive = ZipFile.OpenRead(zip))
+            {
+                Assert.DoesNotContain(archive.Entries, e => e.FullName.StartsWith("private/", StringComparison.OrdinalIgnoreCase));
+            }
             File.Delete(zip);
         }
         finally { Delete(root); }

@@ -13,6 +13,8 @@
     <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
     <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
     <PublishTrimmed>false</PublishTrimmed>
+    <!-- SDK-injected publish tooling differs between Windows and Linux SDK packs. -->
+    <RestorePackagesWithLockFile>false</RestorePackagesWithLockFile>
     <ApplicationIcon />
   </PropertyGroup>
   <ItemGroup>

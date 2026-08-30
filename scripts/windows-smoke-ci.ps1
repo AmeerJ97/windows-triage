@@ -1,4 +1,5 @@
 $ErrorActionPreference = "Stop"
+$PSNativeCommandUseErrorActionPreference = $true
 
 $identity = [Security.Principal.WindowsIdentity]::GetCurrent()
 $principal = [Security.Principal.WindowsPrincipal]::new($identity)
@@ -47,8 +48,11 @@ function Assert-Privacy([string]$ReportFolder) {
 
 try {
     dotnet restore $repoRoot --locked-mode
+    if ($LASTEXITCODE -ne 0) { throw "dotnet restore failed with exit code $LASTEXITCODE" }
     dotnet test $repoRoot --configuration Release --no-restore
+    if ($LASTEXITCODE -ne 0) { throw "dotnet test failed with exit code $LASTEXITCODE" }
     dotnet publish $project -c Release -r win-x64 --self-contained true --no-restore
+    if ($LASTEXITCODE -ne 0) { throw "dotnet publish failed with exit code $LASTEXITCODE" }
     if (-not (Test-Path $exe)) { throw "Missing published executable: $exe" }
 
     New-Item -ItemType Directory -Force -Path $outputRoot | Out-Null
