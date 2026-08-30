@@ -26,22 +26,27 @@ function Invoke-TriageProcess([string]$Name, [string[]]$Arguments) {
 }
 
 function Assert-Privacy([string]$ReportFolder) {
-    $forbidden = @(
+    $forbiddenLiterals = @(
         [Environment]::MachineName,
         [Environment]::UserName,
         'C:\Users\',
         '"systemName"',
         '"serialNumber"',
         '"processorId"',
-        '"pnpDeviceId"',
+        '"pnpDeviceId"'
+    )
+    $forbiddenPatterns = @(
         '"commandLine"\s*:\s*"[^\"]+',
         '"path"\s*:\s*"[A-Za-z]:\\'
     )
     foreach ($file in Get-ChildItem -Path $ReportFolder -File -Recurse) {
         if ($file.Extension -eq ".zip") { continue }
         $text = Get-Content -Raw -LiteralPath $file.FullName -ErrorAction SilentlyContinue
-        foreach ($pattern in $forbidden) {
-            if ($pattern -and $text -match $pattern) { throw "Privacy-sensitive pattern '$pattern' found in $($file.FullName)" }
+        foreach ($literal in $forbiddenLiterals) {
+            if ($literal -and $text.IndexOf($literal, [StringComparison]::OrdinalIgnoreCase) -ge 0) { throw "Privacy-sensitive value '$literal' found in $($file.FullName)" }
+        }
+        foreach ($pattern in $forbiddenPatterns) {
+            if ($text -match $pattern) { throw "Privacy-sensitive pattern '$pattern' found in $($file.FullName)" }
         }
     }
 }
