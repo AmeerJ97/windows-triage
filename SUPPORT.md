@@ -26,4 +26,3 @@ thread.
 Windows Triage helps collect and explain PC-health evidence. It does not replace
 professional hardware repair, malware response, data recovery, medical or
 electrical safety advice, or Microsoft/OEM support.
-

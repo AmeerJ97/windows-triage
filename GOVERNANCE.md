@@ -36,4 +36,3 @@ Repository bots may label, welcome, summarize dependency risk, mark inactivity,
 and maintain a draft release. They may not merge pull requests, close stale
 conversations, publish releases, change branch protection, or bypass human
 release approval.
-

@@ -37,4 +37,3 @@ uses semantic versioning for published releases.
 ### Added
 
 - Initial modular .NET 10 WinForms application, CLI, collectors, diagnosis rules, reports, tests, and CI.
-

@@ -74,11 +74,29 @@ jobs:
           GH_TOKEN: "${{ github.token }}"
         shell: pwsh
         run: |
+          $tag = "${{ inputs.tag }}"
+          $existingDraft = $false
+          $existingNotes = ""
+          gh release view $tag *> $null
+          if ($LASTEXITCODE -eq 0) {
+            $existingDraft = $true
+            $existingNotes = gh release view $tag --json body --jq .body
+          }
           @"
+          $existingNotes
+
+          ## Release evidence
+
           Automated Windows smoke: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           AWS Windows Server evidence: ${{ inputs.aws_evidence_url }}
           Windows 11 GUI/UAC/SmartScreen evidence: ${{ inputs.windows11_evidence_url }}
 
           See docs/release-notes-0.3.0-beta.1.md for changes and privacy guidance.
           "@ | Set-Content release-body.md
-          gh release create "${{ inputs.tag }}" .\WindowsTriage.exe .\WindowsTriage.exe.sha256 --verify-tag --prerelease --title "Windows Triage ${{ inputs.tag }}" --notes-file release-body.md
+          if ($existingDraft) {
+            gh release upload $tag .\WindowsTriage.exe .\WindowsTriage.exe.sha256 --clobber
+            gh release edit $tag --verify-tag --draft=false --prerelease --title "Windows Triage $tag" --notes-file release-body.md
+          }
+          else {
+            gh release create $tag .\WindowsTriage.exe .\WindowsTriage.exe.sha256 --verify-tag --prerelease --title "Windows Triage $tag" --notes-file release-body.md
+          }

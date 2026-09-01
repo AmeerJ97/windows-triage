@@ -34,4 +34,3 @@ maintainer capacity, and evidence quality determine priority.
 - malware removal or forensic acquisition;
 - promises based on unsupported temperature sensors;
 - bot-controlled merges or releases.
-
