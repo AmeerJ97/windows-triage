@@ -1,0 +1,63 @@
+---
+area/cli:
+  - changed-files:
+      - any-glob-to-any-file:
+          - src/WindowsTriage.App/Program.cs
+          - src/WindowsTriage.Core/CliOptions.cs
+          - docs/cli-reference.md
+
+area/gui:
+  - changed-files:
+      - any-glob-to-any-file:
+          - src/WindowsTriage.App/MainForm.cs
+          - src/WindowsTriage.App/app.manifest
+
+area/collectors:
+  - changed-files:
+      - any-glob-to-any-file: src/WindowsTriage.Core/Collectors/**
+
+area/diagnosis:
+  - changed-files:
+      - any-glob-to-any-file: src/WindowsTriage.Core/Diagnosis/**
+
+area/privacy:
+  - changed-files:
+      - any-glob-to-any-file:
+          - SECURITY.md
+          - docs/privacy-model.md
+          - src/WindowsTriage.Core/Models.cs
+          - src/WindowsTriage.Core/Reports/**
+
+area/ci:
+  - changed-files:
+      - any-glob-to-any-file:
+          - .github/**
+          - scripts/**
+
+area/docs:
+  - changed-files:
+      - any-glob-to-any-file:
+          - "**/*.md"
+          - CODE_OF_CONDUCT.md
+          - GOVERNANCE.md
+          - ROADMAP.md
+          - SUPPORT.md
+
+area/tests:
+  - changed-files:
+      - any-glob-to-any-file: tests/**
+
+dependencies:
+  - changed-files:
+      - any-glob-to-any-file:
+          - "**/*.csproj"
+          - "**/packages.lock.json"
+          - Directory.Build.props
+          - global.json
+
+platform/windows:
+  - changed-files:
+      - any-glob-to-any-file:
+          - src/**
+          - scripts/*windows*
+          - docs/windows-*.md

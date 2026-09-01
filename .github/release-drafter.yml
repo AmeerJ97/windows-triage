@@ -1,0 +1,46 @@
+---
+name-template: Windows Triage 0.3.0-beta.1
+tag-template: v0.3.0-beta.1
+categories:
+  - title: Security and privacy
+    labels:
+      - type/security
+      - area/privacy
+  - title: New features
+    labels:
+      - enhancement
+      - type/feature
+  - title: Fixes
+    labels:
+      - bug
+      - type/fix
+  - title: Documentation
+    labels:
+      - documentation
+      - area/docs
+  - title: Dependencies and automation
+    labels:
+      - dependencies
+      - github_actions
+      - area/ci
+  - title: Other changes
+    labels:
+      - type/chore
+exclude-labels:
+  - skip-changelog
+change-template: "- $TITLE (#$NUMBER) by @$AUTHOR"
+template: |
+  ## What changed
+
+  $CHANGES
+
+  ## Verification
+
+  - [ ] CI, Windows smoke, and CodeQL are green for the release commit.
+  - [ ] Windows 11 client acceptance evidence is linked.
+  - [ ] The executable is signed and timestamped by the expected publisher.
+  - [ ] The post-signing SHA-256 checksum is attached.
+
+  ## Privacy
+
+  Share `public_summary.md` in public issues. Keep full diagnostic ZIP files private.

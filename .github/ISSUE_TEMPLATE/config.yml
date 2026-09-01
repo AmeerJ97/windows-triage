@@ -1,0 +1,12 @@
+---
+blank_issues_enabled: false
+contact_links:
+  - name: Ask a question
+    url: https://github.com/AmeerJ97/windows-triage/discussions
+    about: Use Discussions for setup help, troubleshooting questions, and ideas that are not yet feature requests.
+  - name: Report a security vulnerability privately
+    url: https://github.com/AmeerJ97/windows-triage/security/advisories/new
+    about: Do not disclose vulnerabilities or attach diagnostic bundles in a public issue.
+  - name: Read the documentation
+    url: https://github.com/AmeerJ97/windows-triage/tree/main/docs
+    about: Review the CLI, privacy, troubleshooting, and release documentation before opening an issue.

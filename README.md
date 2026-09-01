@@ -1,5 +1,11 @@
 # Windows Triage
 
+[![CI](https://github.com/AmeerJ97/windows-triage/actions/workflows/ci.yml/badge.svg)](https://github.com/AmeerJ97/windows-triage/actions/workflows/ci.yml)
+[![Windows smoke](https://github.com/AmeerJ97/windows-triage/actions/workflows/windows-smoke.yml/badge.svg)](https://github.com/AmeerJ97/windows-triage/actions/workflows/windows-smoke.yml)
+[![CodeQL](https://github.com/AmeerJ97/windows-triage/actions/workflows/codeql.yml/badge.svg)](https://github.com/AmeerJ97/windows-triage/actions/workflows/codeql.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-2f855a.svg)](LICENSE)
+[![Contributions welcome](https://img.shields.io/badge/contributions-welcome-2563eb.svg)](CONTRIBUTING.md)
+
 Windows Triage is a read-only Windows 11 health diagnostic application for overheating, high CPU, throttling, crashes, battery, storage, drivers, updates, Defender, and power issues.
 
 It is a PC-health collector, not an incident-response or forensic triage suite. It does not collect memory dumps, browser history, autoruns data, or other forensic evidence.
@@ -169,6 +175,23 @@ Important examples:
 - `TEMPERATURE_UNAVAILABLE`: Windows did not expose useful native temperature readings.
 
 Native Windows temperature readings are often incomplete on many systems. Treat them as clues, not perfect CPU package/core readings.
+
+## Community
+
+Windows Triage welcomes focused bug reports, ideas, documentation improvements,
+tests, and code contributions. Start with:
+
+- [Contributing guide](CONTRIBUTING.md)
+- [Support and issue routing](SUPPORT.md)
+- [Code of Conduct](CODE_OF_CONDUCT.md)
+- [Governance](GOVERNANCE.md)
+- [Roadmap](ROADMAP.md)
+- [Changelog](CHANGELOG.md)
+- [Maintainer automation guide](docs/maintainer-guide.md)
+
+Use GitHub Discussions for questions and early ideas. Bots assist with labeling,
+dependency review, inactivity signals, and draft release notes, but they never
+merge, close, or publish on their own.
 
 ## Repository Notes
 

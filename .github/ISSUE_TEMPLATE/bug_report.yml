@@ -1,8 +1,10 @@
+---
 name: Bug report
 description: Report a reproducible problem in Windows Triage
 title: "[Bug]: "
 labels:
   - bug
+  - status/needs-triage
 body:
   - type: markdown
     attributes:
@@ -27,12 +29,16 @@ body:
     id: version
     attributes:
       label: Windows Triage version
-      description: Example: 0.2.0
+      description: "Example: 0.3.0-beta.1"
+    validations:
+      required: true
   - type: input
     id: windows_version
     attributes:
       label: Windows version
-      description: Example: Windows 11 24H2
+      description: "Example: Windows 11 24H2"
+    validations:
+      required: true
   - type: dropdown
     id: mode
     attributes:
@@ -41,6 +47,8 @@ body:
         - GUI
         - CLI
         - Both
+    validations:
+      required: true
   - type: textarea
     id: notes
     attributes:

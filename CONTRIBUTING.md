@@ -1,5 +1,11 @@
 # Contributing to Windows Triage
 
+By participating, you agree to the [Code of Conduct](CODE_OF_CONDUCT.md). Review
+the [governance](GOVERNANCE.md), [support boundaries](SUPPORT.md),
+[roadmap](ROADMAP.md), and [maintainer guide](docs/maintainer-guide.md) before
+proposing a substantial change. Questions and early ideas belong in GitHub
+Discussions; actionable bugs and scoped feature requests belong in Issues.
+
 Windows Triage is a Windows-first diagnostic tool for collecting read-only system health data and producing report bundles that a user can review and share.
 
 ## Before You Start

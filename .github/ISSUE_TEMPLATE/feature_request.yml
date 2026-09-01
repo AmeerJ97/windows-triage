@@ -1,8 +1,10 @@
+---
 name: Feature request
 description: Suggest an improvement to Windows Triage
 title: "[Feature]: "
 labels:
   - enhancement
+  - status/needs-triage
 body:
   - type: textarea
     id: problem

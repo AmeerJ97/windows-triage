@@ -15,6 +15,16 @@
 - [Windows 11 KVM acceptance](windows-11-kvm-smoke.md): authoritative client/UAC/SmartScreen validation.
 - [Implementation plan](implementation-plan.md): product shape and deferred work.
 - [Prototype investigation](investigation.md): why the maintained product moved from PowerShell to .NET.
+- [Maintainer guide](maintainer-guide.md): labels, bots, triage, pull requests, and release responsibilities.
+
+## Community
+
+- [Contributing](../CONTRIBUTING.md)
+- [Support](../SUPPORT.md)
+- [Code of Conduct](../CODE_OF_CONDUCT.md)
+- [Governance](../GOVERNANCE.md)
+- [Roadmap](../ROADMAP.md)
+- [Changelog](../CHANGELOG.md)
 
 ## Research and releases
 

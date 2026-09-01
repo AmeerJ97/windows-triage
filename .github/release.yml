@@ -1,0 +1,31 @@
+---
+changelog:
+  exclude:
+    labels:
+      - skip-changelog
+    authors:
+      - dependabot
+  categories:
+    - title: Security and privacy
+      labels:
+        - type/security
+        - area/privacy
+    - title: Features
+      labels:
+        - enhancement
+        - type/feature
+    - title: Fixes
+      labels:
+        - bug
+        - type/fix
+    - title: Documentation
+      labels:
+        - documentation
+        - area/docs
+    - title: Dependencies
+      labels:
+        - dependencies
+        - github_actions
+    - title: Other changes
+      labels:
+        - "*"
